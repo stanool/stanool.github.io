@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Index</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" media="screen" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+    />
+    <style type="text/css">
+        .note {
+            padding: 2em;
+            border: 1px solid #cfcfcf;
+            background-color: #efefef;
+            font-size: 1.5em;
+        }
+
+        .note.playing {
+            padding-top: 1em;
+            padding-bottom: 1em;
+        }
+
+        .note.unsolved {
+            cursor: pointer;
+        }
+
+        .note.unsolved .note-name,
+        .note.unsolved .unknown-note,
+        .note.playing .note-name,
+        .note.solved .unknown-note {
+            display: none;
+        }
+
+        .note.solved .note-name {
+            display: block;
+        }
+
+        .note.unsolved .play-note {
+            display: block;
+        }
+
+        .note.solved .play-note,
+        .note.playing .play-note {
+            display: none;
+        }
+
+        .unknown-note {
+            font-size: 2em;
+        }
+
+        .large-text {
+            font-size:1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="react-app">
+    </div>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+    <script type="text/babel">
+        class Note extends React.Component {
+            constructor(props) {
+                super(props);
+                this.playNote = this.playNote.bind(this);
+            }
+
+            playNote() {
+                if(this.props.state === 'unsolved') {
+                    this.props.handleClick(this.props.index);
+                }
+            }
+
+            render() {
+                const cssClass = 'text-center col note ' + this.props.state;
+                return (
+                    <div className={cssClass} onClick={this.playNote}>
+                        <div>
+                            <span className="note-name">{this.props.noteName}</span>
+                        </div>
+                        <div>
+                            <span className="unknown-note">{String.fromCharCode(9833)}</span>
+                        </div>
+                        <div>
+                            <a href="javascript:" className="play-note" role="button">Play</a>
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        class NoteRow extends React.Component {
+            render() {
+                return (
+                    <div className="row">
+                        {this.props.notes.map(n => (
+                        <Note key={n.key} index={n.key} noteName={n.note} state={n.state} handleClick={this.props.handleClick} />
+                        ))}
+                    </div>
+                );
+            }
+        }
+
+        class App extends React.Component {
+            constructor(props) {
+                super(props);
+
+                this.handleClick = this.handleClick.bind(this);
+                this.allNotes = ['A','Bb','B','C','C#','D','Eb','E','F','F#','G','Ab'];
+                this.init = this.init.bind(this);
+
+                this.state = {
+                    notes : this.initNotes()
+                }
+            }
+
+            get numNotes() {
+                return 20;
+            }
+
+            get notesPerRow() {
+                return 4;
+            }
+
+            shuffle(a) {
+                    var j, x, i;
+                    for (i = a.length - 1; i > 0; i--) {
+                        j = Math.floor(Math.random() * (i + 1));
+                        x = a[i];
+                        a[i] = a[j];
+                        a[j] = x;
+                    }
+                    return a;
+                }
+
+            initNotes() {
+                const selectedNotes = this.shuffle(this.allNotes.concat([])).slice(0, this.numNotes/2);
+                return this.shuffle(selectedNotes.concat(selectedNotes)).map((x, i) => { 
+                        return {
+                            key : i,
+                            note : x,
+                            state : 'unsolved'
+                        };
+                    });
+            }
+            
+            init() {
+                this.setState({
+                    notes : this.initNotes()
+                })
+            }
+
+            handleClick = function(index) {
+                let _this = this;
+
+                let playing = _this.state.notes.filter(n => n.state === 'playing');
+
+                function playNote(note) {
+                    let playingNote = Object.assign({}, note, { state : 'playing'});
+                    setTimeout(function() {
+                        debugger;
+                        let elem = document.createElement('audio');
+                        elem.src = playingNote.note+'.mp3';
+                        elem.play();
+                    }, 1);
+                    return playingNote;
+                }
+
+                if(playing.length === 0) {
+                    _this.setState({
+                        notes : _this.state.notes.map((n, i) => {
+                            return i === index ? playNote(n) : n;
+                        })
+                    });
+                    return;
+                }
+
+                _this.setState({
+                    notes : _this.state.notes.map((n, i) => {
+                            return i === index ? playNote(n) : n;
+                        })
+                });
+
+                setTimeout(function() {
+                    let currNote = _this.state.notes[index];
+                    let prevNote = _this.state.notes.find(n => n.state === 'playing' && n.key !== index);
+                    let state = prevNote.note === currNote.note ? 'solved' : 'unsolved';
+
+                    _this.setState({
+                        notes : _this.state.notes.map((n, i) => {
+                            return (i === index || i === prevNote.key)
+                                ? Object.assign({}, n, { state : state })
+                                : n;
+                        })
+                    });
+                    
+                }, 2100)
+            }
+            
+            render() {
+                let _this = this;
+                const rows = new Array(_this.numNotes).fill(0).reduce((arr, elem, i) => {
+                    let currIndex = i+1;
+                    if(currIndex % _this.notesPerRow === 0) {
+                        arr.push(<NoteRow key={i} notes={_this.state.notes.slice(currIndex-_this.notesPerRow, currIndex)} handleClick={_this.handleClick} />)
+                    }
+                    return arr;
+                }, []);
+                
+                return ( 
+                    <div>
+                        <h3 className="text-center">Note Memory</h3>
+                        <div className="container">
+                            {rows}
+                        </div>
+                        <p className="text-center p-3">
+                            <a href="javascript:" onClick={this.init} className="btn btn-primary p-2 pl-3 pr-3 large-text">Reset</a>
+                        </p>
+                    </div>
+                );
+            } 
+        }
+
+        var appNode =  document.getElementById("react-app");
+        ReactDOM.render(<App />, appNode);
+    </script>
+</body>
+
+</html>
